@@ -9,9 +9,10 @@ import timm
 
 from torchvision import transforms, models, datasets
 from randaugment import RandAugment, ImageNetPolicy, Cutout
+import torch.nn as nn
 # My packages
 
-from data_helper import data_dir
+from data_helper import data_dir, CHECK_POINT_PATH
 from training import create_model
 
 def main(args):
@@ -64,6 +65,49 @@ def main(args):
     # Run this to test the data loader
     images, labels = next(iter(data_loader['test']))
     
-    # Create pre_trained model
+    # Loaded pre_trained model
     model = create_model(flag_model=flag_model, flag_pretrained=True)
+
+    # Create classifiers
+    for param in model.parameters():
+        param.requires_grad = True
+
+    # Configs some last layers for my tasks classification covid
+    fc = nn.Sequential(OrderedDict([('fc1', nn.Linear(2048, 1000, bias=True)),
+							     ('BN1', nn.BatchNorm2d(1000, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)),
+								 ('dropout1', nn.Dropout(0.7)),
+                                 ('fc2', nn.Linear(1000, 512)),
+								 ('BN2', nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)),
+								 ('swish1', Swish()),
+								 ('dropout2', nn.Dropout(0.5)),
+								 ('fc3', nn.Linear(512, 128)),
+								 ('BN3', nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)),
+							     ('swish2', Swish()),
+								 ('fc4', nn.Linear(128, 3)),
+								 ('output', nn.Softmax(dim=1))
+							 ]))
+
+    # Connect pretrained model with modified classifer layer
+    model.fc = fc 
+    criterion = nn.CrossEntropyLoss()
+
+    # Optimizer
+    optimizer = optim.SGD(model.parameters(), 
+                      lr=0.01,momentum=0.9,
+                      nesterov=True,
+                      weight_decay=0.0001)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+    # Send to GPU
+    model.to(device)
+    
+    #Set checkpoint
+    try:
+        checkpoint = torch.load(CHECK_POINT_PATH)
+        print("checkpoint loaded")
+    except:
+        checkpoint = None
+        print("checkpoint not found")
+
+    if checkpoint == None:
+    
 

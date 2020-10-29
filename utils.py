@@ -1,3 +1,9 @@
+
+
+
+
+
+#### to show some  image
 def showimage(data_loader, number_images, cat_to_name):
     dataiter = iter(data_loader)
     images, labels = dataiter.next()
@@ -9,5 +15,6 @@ def showimage(data_loader, number_images, cat_to_name):
         img = np.transpose(images[idx])
         plt.imshow(img)
         ax.set_title(cat_to_name[labels.tolist()[idx]])
+
+
         
-#### to show some  image
